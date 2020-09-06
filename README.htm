@@ -1,0 +1,257 @@
+<!doctype html public "-//W3C//DTD HTML 3.2//EN">
+
+<html>
+
+ <head>
+  <meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+  <meta name="language" content="en">
+  <meta name="author" content="Takayuki 'January June' Suwa / Beliefia Productions">
+  <meta name="date" content="2001-11-28T13:23:39+09:00">
+  <link rev="made" href="mailto:jjsuwa@sys3175.com">
+  <title>Software Screen to Screen BitBlt Acceleration GRADD filter, r0.0.6 User's Guide</title>
+ </head>
+
+ <body>
+
+  <h1>Software Screen to Screen BitBlt Acceleration GRADD filter, r0.0.6</h1>
+  <strong>Copyright (c) 2001 Takayuki 'January June' Suwa / Beliefia Productions</strong>
+  <hr>
+
+  <hr>
+
+  <h1>0. <a name="0">Table of Contents</a></h1>
+  <ul>
+   <li>0. <a href="#0">Table of Contents</a></li>
+   <li>1. <a href="#1">Welcome</a>
+       <ul>
+        <li>1.1. <a href="#1.1">Copyright and Disclaimer</a></li>
+        <li>1.2. <a href="#1.2">System Requirements</a></li>
+        <li>1.3. <a href="#1.3">Contact Author</a></li>
+        <li>1.4. <a href="#1.4">Revision History</a></li>
+       </ul></li>
+   <li>2. <a href="#2">How to Use</a>
+       <ul>
+        <li>2.1. <a href="#2.1">In This Archive</a></li>
+        <li>2.2. <a href="#2.2">Driver Installation</a></li>
+        <li>2.3. <a href="#2.3">Configuration</a></li>
+        <li>2.4. <a href="#2.4">Before and After</a></li>
+       </ul></li>
+   <li>3. <a href="#3">Credits</a></li>
+  </ul>
+  <hr>
+
+  <hr>
+
+  <h1>1. <a name="1">Welcome</a></h1>
+  SSSBBACC.DLL is a small GRADD filter driver that can accelerate simple 'Screen to Screen' BitBlt operations <strong>under unaccelerated GRADD drivers</strong>.<br>
+  <br>
+  Roughly, any graphical drawing commands are passing through some layered process chain on GRADD-based environments:
+  <dl>
+   <dt>GRADD clients</dt>
+    <dd>Any programs or subsystems that use GRADD VMI (Video Manager Interface) commands in order to draw graphics. For example, OS/2 Presentation Manager display driver (GRE2VMAN.DLL).</dd>
+   <dt>GRADD video manager</dt>
+    <dd>Named VMAN (VMAN.DLL). This receives any VMI commands from GRADD clients, translates to VHI (Video Hardware Interface) commands, and sends them to appropriate GRADD video drivers.<br>
+        If each GHI response indicates software emulation (GRADD video drivers could nothing), VMAN calls generic software graphics engine (SOFTDRAW.DLL) rather.</dd>
+   <dt>GRADD video drivers</dt>
+    <dd>Entities of VHI command processing. Video hardware dependant, of course.</dd>
+  </dl>
+  As a GRADD filter driver, SSSBBACC.DLL is installed between GRADD video manager and GRADD video driver, and watches over simple (but definitely important) form of 'Screen to Screen' BitBlt GHI commands:
+  <ul>
+   <li>both source and destination are VRAM</li>
+   <li>source-copy raster operation, with no pattern, no transparency, no stretching and no clipping</li>
+  </ul>
+  If such commands responded software emulation, SSSBBACC intercepts and processes them by own blitters faster than SOFTDRAW, and reports completion to VMAN.<br>
+  Assembler-coded, MMX / SSEint-ready blitters are heavy optimized for uncached memory reads and write-combined memory writes, designed in order to eliminate unnecessary, quite slower peripheral bus cycles as much as possible.<br>
+  <br>
+  Typically, such slower software BitBlts may <a href="#2.4">speed up to 1.5x ~ 2.5x</a>. Highly recommended for unaccelerated or poor-accelerated GHI (such as GENGRADD, M64GRADD in 24bpp, INTGRADD and so on) users.
+  <hr>
+
+  <h2>1.1. <a name="1.1">Copyright and Disclaimer</a></h2>
+  <ol>
+   <li>'THIS SOFTWARE (SSSBBACC.DLL AND ITS SOURCES) AND WHOLE SET OF DOCUMENTS' (CALLED 'THE PRODUCT') ARE ENTIRELY COPYRIGHTED BY TAKAYUKI 'JANUARY JUNE' SUWA / BELIEFIA PRODUCTIONS, AUTHOR / HOLDER OF THE PRODUCT.</li>
+   <li>THE PRODUCT IS STILL UNDER DEVELOPMENT AT THE DISTRIBUTION, AND MAY BE OCCURED ANY MODIFICATION / DELETION OF APPEARANCE / FUNCTION OR WITHDRAWAL OF DEVELOPMENT / SERVICE IN FUTURE WITHOUT NOTICE.</li>
+   <li>THE PRODUCT IS PROVIDED 'AS IS' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.</li>
+   <li>IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY DAMAGES, WHETHER IN CONTRACT OR TORT (INCLUDED NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE PRODUCT, EVEN THOUGH SUCH HOLDER HAS BEEN ADVISED OF THE POSSIBILITY OF ANY DAMAGE.</li>
+  </ol>
+  We are regarded you agree disclaimer above at the first installation of SSSBBACC.DLL. If you disagree above, you must discard all files of the product.
+  <hr>
+
+  <h2>1.2. <a name="1.2">System Requirements</a></h2>
+  This software will be functioned in environment such as:<br>
+  <ul>
+   <li>OS/2 version 3.x with FP35+, OS/2 version 4.0 with FP5+, WSeB, MCP, ACP or eCS. Both uniprocessor and multiprocessor version are supported.<br>
+       This is GRADD video subsystem prerequisites.</li>
+   <li>Any GRADD-based display drivers, build E.083 equivalent or later. For example, IBM GRADD BBS package or SciTech Display Doctor 7 for OS/2.<br>
+       (But however, in most cases SDD/2 Nucleus can rapidly process 'Screen to Screen' BitBlts with hardware acceleration, thus virtually needless for almost SDD/2 users. Please check whether hardware acceleration of your video card is supported by SDD/2 <strong>before asking me</strong> <tt>:)</tt></li>
+   <li>Any 32bit CPUs that have both on-chip FPU and <tt>CPUID</tt> instruction. For example, Intel i486 (except for some earlier versions), AMD 5K86/K5, Cyrix 6x86 (requires <tt>CPUID</tt> enabling), IDT WinChip or their successors.<br>
+       (Intel P6, AMD K6/K7 or Cyrix 6x86MX/MII are strongly recommended, since CPUs that do not have on-chip write-combining come less effectivity.)</li>
+  </ul>
+  <dl>
+   <dt><strong>WARNING!!</strong></dt>
+    <dd>We recognize some Intel Pentium without MMX have problem that causes traps by reading a large amount of uncached memory (e.g. VRAM aperture) using on-chip FPU.<br>
+        Not recommended for Pentium without MMX machines.</dd>
+  </dl>
+  <hr>
+
+  <h2>1.3. <a name="1.3">Contact Author</a></h2>
+  Email to Takayuki 'January June' Suwa:
+  <ul>
+   <li><a href="mailto:jjsuwa@sys3175.com">mailto:jjsuwa@sys3175.com</a></li>
+  </ul>
+  <hr>
+
+  <h2>1.4. <a name="1.4">Revision History</a></h2>
+  <ul>
+   <li><strong>r0.0.0</strong> - August 31st,2001
+       <ol>
+        <li>Internal release. The idea seems true <tt>:)</tt></li>
+       </ol></li>
+   <li><strong>r0.0.1</strong> - September 4th,2001
+       <ol>
+        <li>First public release.</li>
+        <li>Added SSEint MMX blitter for SSEint-capable CPUs, and legacy MMX blitter for MMX-capable CPUs.</li>
+       </ol></li>
+   <li><strong>r0.0.2</strong> - September 6th,2001
+       <ol>
+        <li>Modified that internal BitBlt buffer is allocated dynamically in order to reduce locked memory pages.</li>
+       </ol></li>
+   <li><strong>r0.0.3</strong> - September 14th,2001
+       <ol>
+        <li>Optimized more for P6 instruction fetch / decode.</li>
+       </ol></li>
+   <li><strong>r0.0.4</strong> - October 1st,2001
+       <ol>
+        <li>Fixed problem used with VGAGRADD.</li>
+       </ol></li>
+   <li><strong>r0.0.5</strong> - October 29th,2001
+       <ol>
+        <li>Fixed trap on SSEint-capable machines. (thanks to Eugene)</li>
+        <li>Added presence of both on-chip FPU and <tt>CPUID</tt> instruction, to system requirements.</li>
+       </ol></li>
+   <li><strong>r0.0.6</strong> - November 27th,2001
+       <ol>
+        <li>Improved performance slightly (by cache-line filling).</li>
+        <li>Added Japanese documentation.</li>
+       </ol></li>
+  </ul>
+  <hr>
+
+  <hr>
+
+  <h1>2. <a name="2">How to Use</a></h1>
+  <hr>
+
+  <h2>2.1. <a name="2.1">In This Archive</a></h2>
+  <dl>
+   <dt>SSSBBACC.dll</dt>
+    <dd>Software Screen to Screen BitBlt Acceleration GRADD filter driver file</dd>
+   <dt>README.htm / READMEJ.htm</dt>
+    <dd>This document</dd>
+   <dt>source\*</dt>
+    <dd>Source code set of SSSBBACC.dll</dd>
+   <dt>source\fromIBM\*.H</dt>
+    <dd>Some C/C++ header files from DDK</dd>
+  </dl>
+  <hr>
+
+  <h2>2.2. <a name="2.2">Driver Installation</a></h2>
+  <ol>
+   <li>Unzip archive to where you desire. (e.g. C:\SSSBBACC)</li>
+   <li>Copy SSSBBACC.DLL to where LIBPATH reaches. (e.g. C:\OS2\DLL)</li>
+   <li>Find similar line
+       <table border="1"><tbody><tr><td>
+<pre>SET C1=GRADD1,GRADD2,GRADD3</pre>
+       </td></tr></tbody></table>
+       from your CONFIG.SYS and append 'SSSBBACC' to it. For example:
+       <table border="1"><tbody><tr><td>
+<pre>SET C1=GRADD1,GRADD2,GRADD3,SSSBBACC</pre>
+       </td></tr></tbody></table></li>
+   <li>Optionally (but highly recommended), cast write-combining strategy to VRAM aperture.
+       <ul>
+        <li>If using IBM GRADD BBS package with Intel P6 (PentiumPro, PentiumII, Celeron and PentiumIII) or AMD K7 (Athlon and Duron), simply add &quot;SET GRADD_WC=Y&quot; line to your CONFIG.SYS (uniprocessor only)</li>
+        <li>If using SDD/2, turn 'no write-combining' option to off (<tt>gaoption nowcomb off</tt>)</li>
+        <li>Another our product, <a href="http://hobbes.nmsu.edu/cgi-bin/h-search?key=p6k7mtrr" target="_blank">Intel P6 / AMD K7 MTRRs management IOCtl PDD</a> can also do. It now supports multiprocessor-aware write-combining.</li>
+       </ul></li>
+   <li>Restart your system.</li>
+   <li>Check GRADD.LOG on \OS2\INSTALL directory on boot drive. If installation successfully, you will see such as:
+       <table border="1"><tbody><tr><td>
+<pre>yyyymmddThhmmss VMAN:ProcessGraddList(): Module GRADD1 loaded successfully
+yyyymmddThhmmss VMAN:ProcessGraddList(): Module GRADD2 loaded successfully
+yyyymmddThhmmss VMAN:ProcessGraddList(): Module GRADD3 loaded successfully
+<u>yyyymmddThhmmss VMAN:ProcessGraddList(): Module SSSBBACC loaded successfully</u></pre>
+       </td></tr></tbody></table></li>
+  </ol>
+  <hr>
+
+  <h2>2.3. <a name="2.3">Configuration</a></h2>
+  <ol>
+   <li>In default, SSSBBACC.DLL will detect MMX / SSEint and try to use them automatcally:
+       <ul>
+        <li>first, uses SSEint MMX blitter if SSEint is available</li>
+        <li>next, uses legacy MMX blitter if MMX is available</li>
+        <li>last, uses generic FPU integer blitter</li>
+       </ul></li>
+   <li>In order not to use MMX or SSEint, set some environment variables in your CONFIG.SYS, with any dummy value:
+       <dl>
+        <dt>SSSBBACC_NOSSEINT</dt>
+         <dd>inhibits using SSEint</dd>
+        <dt>SSSBBACC_NOMMX</dt>
+         <dd>inhibits using MMX</dd>
+       </dl></li>
+   <li>On some MMX-capable CPUs, however, generic FPU integer blitter may be faster than others.<br>
+       Try to disable MMX / SSEint blitters.</li>
+  </ol>
+  <hr>
+
+  <h2>2.4. <a name="2.4">Before and After</a></h2>
+  Sample case (our developping environment):
+  <ul>
+   <li>2-way Celeron-A 412MHz (75Mhz 5.5x) multiprocessor, i440BX mainboard</li>
+   <li>ATI RagePro 2x AGP 4MB SGRAM, resolution of 1024 x 768, write-combining strategy applied by P6K7MTRR+VFBWC</li>
+   <li><tt>SET SSSBBACC_NOSSEINT=Y</tt> and <tt>SET SSSBBACC_NOMMX=Y</tt></li>
+   <li>OS/2 Warp4.0 Japanese NLV w/FP15 SMP-tweaked (revision 14.085_SMP)</li>
+   <li>IBM GRADD BBS package build 0.091</li>
+  </ul>
+  SysBench 'BitBlt S-&gt;S Copy' results:
+  <dl>
+   <dt>ATI Mach64 GRADD [M64GRADD] (ill-slowed 24bpp left-to-right S2S BitBlt)</dt>
+    <dd>24bpp : 1.501 to 4.358 million pixels/second (2.90x faster)</dd>
+   <dt>SVGA Generic GRADD [GENGRADD] (totally software processing)</dt>
+    <dd>8bpp : 4.616 to 12.586 million pixels/second (2.73x faster)</dd>
+    <dd>16bpp : 2.548 to 6.281 million pixels/second (2.47x faster)</dd>
+    <dd>24bpp : 1.471 to 4.184 million pixels/second (2.84x faster)</dd>
+  </dl>
+  <hr>
+
+  <hr>
+
+  <h1>3. <a name="3">Credits</a></h1>
+  <dl>
+   <dt><strong>Development</strong></dt>
+    <dl>
+     <dt><strong>Programming</strong></dt>
+      <dd>Takayuki 'January June' Suwa / Beliefia Productions</dd>
+    </dl>
+    <dl>
+     <dt><strong>Documentation</strong></dt>
+      <dd>Takayuki 'January June' Suwa / Beliefia Productions</dd>
+    </dl>
+   <dt><strong>Special thanks to</strong></dt>
+    <dl>
+     <dt><strong>Masaharu 'Densuke' Nagata</strong></dt>
+      <dd>He allowed me to replicate WARP4 Developer's Toolkit <strong>UNDER LEGAL LICENSE</strong>. Thanks a lot.</dd>
+    </dl>
+  </dl>
+  <hr>
+
+  <hr>
+
+  Copyright 2001 Takayuki 'January June' Suwa / Beliefia Productions. All rights reserved.<br>
+  Beliefia Productions and its logo design are trademarks of Beliefia Productions. All rights reserved.<br>
+  Other copyrighted works (images, musics, programs, and so on), trademarks and servicemarks in this document are owned by their respective owners.<br>
+  <br>
+  [This document is HTML3.2(Wilbur)-compliant.]
+
+ </body>
+
+</html>

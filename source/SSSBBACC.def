@@ -1,0 +1,14 @@
+; SSSBBACC.def - Software Screen to Screen BitBlt Acceleration GRADD filter, release 0.0.6
+;   Copyright (c) 2001 Takayuki 'January June' Suwa
+
+LIBRARY SSSBBACC INITGLOBAL TERMGLOBAL
+DESCRIPTION "@#JJSuwa:0.00#@##1##Tue Nov 27 13:27:00 2001 ivory::::6::@@ Software Screen to Screen BitBlt Acceleration GRADD filter"
+PROTMODE
+CODE EXECUTEREAD LOADONCALL
+DATA READONLY SHARED LOADONCALL
+IMPORTS
+ VMAN.VHLockMem
+ VMAN.VHAllocMem
+EXPORTS
+ HWEntry @ 1
+
